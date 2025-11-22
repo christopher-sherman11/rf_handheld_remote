@@ -19,11 +19,11 @@
 
 enum FanLocation 
 {
-  DiningArea = 0,
-  Study,
-  TVArea,
-  MasterBedroom,
-  MusicRoom
+  enDiningArea = 0,
+  enStudy,
+  enTVArea,
+  enMasterBedroom,
+  enMusicRoom
 };
 
 typedef struct 
@@ -69,7 +69,7 @@ char buffer[MAX_CODE_LENGTH];
 // Pin range for wakeup
 const byte wakePins[] = {2};
 
-int fan_id = DiningArea;
+int fan_id = enDiningArea;
 
 int fan_speed = 0;
 
@@ -124,7 +124,7 @@ void setup_RfTx()
   //mySwitch.setPulseLength(260);
 
   // Pulse Length = 290 [Fanco Fans]
-  mySwitch.setPulseLength(290);
+  mySwitch.setPulseLength(280);
 
   // Optional set number of transmission repetitions.
   // Mine seem to work with 2, yours may need more
@@ -143,7 +143,7 @@ void setup()
   //init_interrupts();
 
   // Configure fan_id 
-  fan_id = Study;
+  fan_id = enDiningArea;
 
   // Setup RF communication
   setup_RfTx();
@@ -192,6 +192,11 @@ void rf_tx_fan_speed()
 
 void loop() 
 {
+    // Enter power down state with ADC and BOD module disabled.
+    // Wake up when wake up pin is low.
+    //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
+
+
 
     /* Debounce button inputs */
     debBtnOff.update();
@@ -201,9 +206,6 @@ void loop()
     debBtnLight.update();
     
 
-    // Enter power down state with ADC and BOD module disabled.
-    // Wake up when wake up pin is low.
-    //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
 
     if(debBtnOff.fell())
     {
@@ -221,12 +223,10 @@ void loop()
       if(fan_speed < 5)
       {
         fan_speed++;
+      }
 
         /* RF TX fan command */
         rf_tx_fan_speed();
-      }
-
-
     }
 
     if(debBtnSpdDec.fell())
@@ -234,11 +234,10 @@ void loop()
       if(fan_speed > 0)
       {
         fan_speed--;
-
-        /* RF TX fan command */
-        rf_tx_fan_speed();        
       }
 
+        /* RF TX fan command */
+        rf_tx_fan_speed();
     }
 
 
