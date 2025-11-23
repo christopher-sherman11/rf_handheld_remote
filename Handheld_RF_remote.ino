@@ -7,10 +7,10 @@
 
 // Pin definitions 
 #define PIN_BTN_FAN_OFF     3
-#define PIN_BTN_SPEED_INC   2
-#define PIN_BTN_SPEED_DEC   4
-#define PIN_BTN_FAN_DIR     5
-#define PIN_BTN_LIGHT       6
+#define PIN_BTN_SPEED_INC   4
+#define PIN_BTN_SPEED_DEC   5
+#define PIN_BTN_FAN_DIR     6
+#define PIN_BTN_LIGHT       8
 
 
 #define MAX_FANS 5
