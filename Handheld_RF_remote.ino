@@ -6,6 +6,7 @@
 #include <Bounce2.h>
 
 // Pin definitions 
+#define PIN_INT0            2
 #define PIN_BTN_FAN_OFF     3
 #define PIN_BTN_SPEED_INC   4
 #define PIN_BTN_SPEED_DEC   5
@@ -48,7 +49,7 @@ typedef struct
 
 const FanCode fanCodes[] PROGMEM = 
 {
-    {"Dining Area", 290, 10, "111100000000011100000001", "111100000000011100000000", "111100000000011100010101", "111100000000011100001101", "111100000000011100001001", "111100000000011100001010", "111100000000011110111100", "111100000000011110111100", "111100000000011100010110", "111100000000011100010100", "111100000000011100000110", "111100000000011100001000", "111100000000011100001110"},
+    {"Dining Area", 280, 10, "111100000000011100000001", "111100000000011100000000", "111100000000011100010101", "111100000000011100001101", "111100000000011100001001", "111100000000011100001010", "111100000000011110111100", "111100000000011110111100", "111100000000011100010110", "111100000000011100010100", "111100000000011100000110", "111100000000011100001000", "111100000000011100001110"},
     {"Study", 290, 10, "111100110110110100000001", "111100110110110100000000", "111100110110110100010101", "111100110110110100001101", "111100110110110100001001", "111100110110110100001010", "111100110110110110111100", "111100110110110110111100", "111100110110110100010110", "111100110110110100010100", "111100110110110100000110", "111100110110110100001000", "111100110110110100001110"},
     {"TV Area", 290, 10, "101110010001010100000001", "101110010001010100000000", "101110010001010100010101", "101110010001010100001101", "101110010001010100001001", "101110010001010100001010", "101110010001010110111100", "101110010001010110111100", "101110010001010100010110", "101110010001010100010100", "101110010001010100000110", "101110010001010100001000", "101110010001010100001110"},
     {"Master Bedroom", 290, 10, "100101111000101000000001", "100101111000101000000000", "100101111000101000010101", "100101111000101000001101", "100101111000101000001001", "100101111000101000001010", "100101111000101010111100", "100101111000101010111100", "100101111000101000010110", "100101111000101000010100", "100101111000101000000110", "100101111000101000001000", "100101111000101000001110"},
@@ -76,7 +77,10 @@ int fan_speed = 0;
 void init_inputs(void)
 {
 
-  /* Configure pin direction, internal pull-ups, etc*/   
+  /* Configure internal pullup for INT0 wakeup input */
+  pinMode(PIN_INT0, INPUT_PULLUP);
+  
+  /* Configue internal pullups for buttons inputs */
   pinMode(PIN_BTN_FAN_OFF, INPUT_PULLUP);
   pinMode(PIN_BTN_SPEED_INC, INPUT_PULLUP);
   pinMode(PIN_BTN_SPEED_DEC, INPUT_PULLUP);
@@ -87,10 +91,10 @@ void init_inputs(void)
   debBtnOff.interval(1);  // debounce time in ms
 
   debBtnSpdInc.attach(PIN_BTN_SPEED_INC);
-  debBtnSpdInc.interval(1);
+  debBtnSpdInc.interval(0);
 
   debBtnSpdDec.attach(PIN_BTN_SPEED_DEC);
-  debBtnSpdDec.interval(1);
+  debBtnSpdDec.interval(0);
 
   debBtnFanDir.attach(PIN_BTN_FAN_DIR);
   debBtnFanDir.interval(1);
@@ -102,7 +106,7 @@ void init_inputs(void)
 void init_interrupts(void)
 {
   // Attach interrupt on INT0 (pin 2) to trigger on LOW level
-  //attachInterrupt(digitalPinToInterrupt(2), wakeUpISR, LOW);
+  attachInterrupt(digitalPinToInterrupt(2), wakeUpISR, LOW);
 }
 
 void setup_RfTx()
@@ -116,15 +120,15 @@ void setup_RfTx()
   // Set Protocol (default is 1, will work for most outlets)
   mySwitch.setProtocol(1); 
 
-  // Set pulse length 
-  // NB Pulse length must be set AFTER Protocol, 
-  // because setProtocol(1) also sets pulse length = 350
-  
-  // Pulse Length = 260 [Piano Room]
-  //mySwitch.setPulseLength(260);
+  FanCode tmpFanCodeStruct;
+  memcpy_P(&tmpFanCodeStruct, &fanCodes[fan_id], sizeof(FanCode));
 
-  // Pulse Length = 290 [Fanco Fans]
-  mySwitch.setPulseLength(280);
+  //Serial.println("Pulse_Length: ");
+  //Serial.print(tmpFanCodeStruct.Pulse_Length);
+
+  // Configure RF pulse lenght for each message
+  mySwitch.setPulseLength(tmpFanCodeStruct.Pulse_Length);
+  
 
   // Optional set number of transmission repetitions.
   // Mine seem to work with 2, yours may need more
@@ -140,10 +144,10 @@ void setup()
   init_inputs();
 
   // Initialize and enable inerrupts
-  //init_interrupts();
+  init_interrupts();
 
   // Configure fan_id 
-  fan_id = enDiningArea;
+  fan_id = enStudy;
 
   // Setup RF communication
   setup_RfTx();
@@ -192,11 +196,25 @@ void rf_tx_fan_speed()
 
 void loop() 
 {
+    int u16_btnFanOff = HIGH;
+    int u16_btnSpeedInc = HIGH;
+    int u16_btnSpeedDec = HIGH;
+    int u16_btnFanDir = HIGH;
+    int u16_btnLight = HIGH;
+    
     // Enter power down state with ADC and BOD module disabled.
     // Wake up when wake up pin is low.
-    //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
+    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF); 
 
+    /* Debounce time after wakeup */
+    delay(10);
 
+    /* Read all button inputs */
+    u16_btnFanOff = digitalRead(PIN_BTN_FAN_OFF);
+    u16_btnSpeedInc = digitalRead(PIN_BTN_SPEED_INC);
+    u16_btnSpeedDec = digitalRead(PIN_BTN_SPEED_DEC);
+    u16_btnFanDir = digitalRead(PIN_BTN_FAN_DIR);
+    u16_btnLight = digitalRead(PIN_BTN_LIGHT);
 
     /* Debounce button inputs */
     debBtnOff.update();
@@ -206,8 +224,8 @@ void loop()
     debBtnLight.update();
     
 
-
-    if(debBtnOff.fell())
+    //if(debBtnOff.fell())
+    if(u16_btnFanOff == LOW)
     {
       fan_speed = 0;
 
@@ -218,7 +236,8 @@ void loop()
     }
 
     
-    if(debBtnSpdInc.fell())
+    //if(debBtnSpdInc.fell())
+    if(u16_btnSpeedInc == LOW)
     {
       if(fan_speed < 5)
       {
@@ -229,7 +248,8 @@ void loop()
         rf_tx_fan_speed();
     }
 
-    if(debBtnSpdDec.fell())
+    //if(debBtnSpdDec.fell())
+    if(u16_btnSpeedDec == LOW)
     {
       if(fan_speed > 0)
       {
